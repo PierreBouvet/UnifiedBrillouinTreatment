@@ -407,9 +407,6 @@ class FileProperties(QDialog):
             table.setItem(row_idx, 1, QTableWidgetItem(value))
             table.setItem(row_idx, 2, QTableWidgetItem(unit))
 
-    def save_properties(self):
-        pass
-
     def save_as_properties(self):
         pass
 
