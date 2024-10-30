@@ -258,17 +258,10 @@ class FileProperties(QDialog):
         self.open_file_button.setFixedSize(50, 50)  # Set a standard icon size
         self.open_file_button.clicked.connect(self.open_file_config)
 
-        self.save_properties_button = QPushButton()
-        self.save_properties_button.setIcon(QIcon(loc + "img/save.png"))  # Replace with actual image path
-        self.save_properties_button.setIconSize(self.parent.icon_size)
-        self.save_properties_button.setToolTip("Open existing configuration file")
-        self.save_properties_button.setFixedSize(50, 50)  # Set a standard icon size
-        self.save_properties_button.clicked.connect(self.save_properties)
-
         self.save_as_properties_button = QPushButton()
         self.save_as_properties_button.setIcon(QIcon(loc + "img/save_as.png"))  # Replace with actual image path
         self.save_as_properties_button.setIconSize(self.parent.icon_size)
-        self.save_as_properties_button.setToolTip("Open existing configuration file")
+        self.save_as_properties_button.setToolTip("Save the current configuration in a CSV file to reuse for further experiments")
         self.save_as_properties_button.setFixedSize(50, 50)  # Set a standard icon size
         self.save_as_properties_button.clicked.connect(self.save_as_properties)
 
@@ -281,7 +274,6 @@ class FileProperties(QDialog):
 
         top_layout.addWidget(self.open_file_button)
         top_layout.addWidget(self.save_as_properties_button)
-        top_layout.addWidget(self.save_properties_button)
         top_layout.addWidget(self.close_properties_button)
         top_layout.addStretch()
 
@@ -381,7 +373,6 @@ class FileProperties(QDialog):
 
                     prec = []
                     for i, e in enumerate(self.parsed_data[current_section]):
-                        print(e)
                         if property_name == e[0]: 
                             prec = list(e)
                             if len(e[1])==0:
@@ -423,7 +414,29 @@ class FileProperties(QDialog):
         pass
 
     def exit(self):
+        # Retrieve names and values for each tab
+        self.extracted_data = {
+            "MEASURE": self.extract_table_data(self.measure_table),
+            "SPECTROMETER": self.extract_table_data(self.spectrometer_table),
+            "FILEPROP": self.extract_table_data(self.File_Properties_table),
+        }
+
+        with h5py.File(self.filepath_measure, 'a') as f:
+            for k in ["MEASURE","SPECTROMETER","FILEPROP"]:
+                for (name, val) in self.extracted_data[k]:
+                    s = k+'.'+name
+                    f.attrs[s] = val
+
+        # Close the dialog
         self.close()
+
+    def extract_table_data(self, table):
+        data = []
+        for row in range(table.rowCount()):
+            name = table.item(row, 0).text() if table.item(row, 0) else ""
+            value = table.item(row, 1).text() if table.item(row, 1) else ""
+            data.append((name, value))
+        return data
 
 class TreatSpectra(QMainWindow):
     def __init__(self, parent, spectra_selected):
