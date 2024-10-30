@@ -1,0 +1,44 @@
+﻿Standard_reporting_values_v0.1,,
+,,
+MEASURE,,
+Sample,,
+Date_of_measure,,
+Exposure,10,s
+Dimensionnality_of_measure,0,
+"Sampling_Matrix_Size_(Nx,Ny,Nz)","(1,1,1)",
+"Sampling_Step_Size_(dx,dy,dz)","(0,0,0)",
+"Field_of_view_(X,Y,Z)","(0,0,0)",
+,,
+SPECTROMETER,,
+Type,TFP 6 pass,
+Model,JRS something,
+Wavelength_nm,660,nm
+Confocal_Pinhole_Diameter,,AU
+Detection_Lens_NA,0.2,
+Detector_Model,Super Detector,
+Detector_Type,Photon Counter,
+Filtering_Module,None,
+Illumination_Lens_NA,0.2,
+Illumination_Power,100,mW
+Illumination_Type,CW,
+Laser_Model,Cobolt something,
+Laser_Drift,100,MHz/h
+Phonons_Measured,,
+Polarization_probed-analyzed,,
+Scan_Amplitude,,GHz
+Scanning_Strategy,,
+Scattering_Angle,180,degrees
+Spectral_Resolution,,GHz
+Spectrometer_Resolution,,MHz
+Spectrometer_Type,,
+x-Mechanical_Resolution,,µm
+x-Optical_Resolution,,µm
+y-Mechanical_Resolution,,µm
+y-Optical_Resolution,,µm
+z-Mechanical_Resolution,,µm
+z-Optical_Resolution,,µm
+,,
+FILEPROP,,
+BLS_HDF5_Version,0.1,
+Filepath,,
+Name,,
