@@ -16,6 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import csv
+from datetime import datetime
 
 loc = "/Users/pierrebouvet/Documents/Code/UnifiedBrillouinTreatment/"
 
@@ -268,7 +269,7 @@ class FileProperties(QDialog):
         self.close_properties_button = QPushButton()
         self.close_properties_button.setIcon(QIcon(loc + "img/exit.png"))  # Replace with actual image path
         self.close_properties_button.setIconSize(self.parent.icon_size)
-        self.close_properties_button.setToolTip("Open existing configuration file")
+        self.close_properties_button.setToolTip("Save changes and close property window")
         self.close_properties_button.setFixedSize(50, 50)  # Set a standard icon size
         self.close_properties_button.clicked.connect(self.exit)
 
@@ -408,7 +409,44 @@ class FileProperties(QDialog):
             table.setItem(row_idx, 2, QTableWidgetItem(unit))
 
     def save_as_properties(self):
-        pass
+        # Open a file dialog to specify where to save the CSV file
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Properties As", "", "CSV Files (*.csv)")
+        
+        if not file_path:
+            return  # If no file is selected, do nothing
+
+        # Extract data from table
+        extracted_data = {
+            "MEASURE": self.extract_table_data(self.measure_table),
+            "SPECTROMETER": self.extract_table_data(self.spectrometer_table),
+            "FILEPROP": self.extract_table_data(self.File_Properties_table),
+        }
+
+        # Define the file metadata
+        file_name = file_path.split("/")[-1]
+        file_name = file_name.split(".")[0]
+        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        version = self.parent.config["Version"]["brillouin_bh5"]
+        
+        try:
+            # Write the CSV file
+            with open(file_path, mode='w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Write the file metadata as the first line
+                writer.writerow([file_name, creation_date, version])
+                
+                # Loop through each section in self.extracted_data and write the properties
+                for key, data in extracted_data.items():
+                    writer.writerow([])  # Blank line before each section
+                    writer.writerow([key.upper()])  # Write the section name
+                    
+                    # Write each property (name, value, unit) in the section
+                    for name, value, unit in data:
+                        writer.writerow([name, value, unit])  # Assuming empty unit for now
+                        
+        except Exception as e:
+            print(f"Error saving properties to file: {e}")
 
     def exit(self):
         # Retrieve names and values for each tab
@@ -420,7 +458,7 @@ class FileProperties(QDialog):
 
         with h5py.File(self.filepath_measure, 'a') as f:
             for k in ["MEASURE","SPECTROMETER","FILEPROP"]:
-                for (name, val) in self.extracted_data[k]:
+                for (name, val, _) in self.extracted_data[k]:
                     s = k+'.'+name
                     f.attrs[s] = val
 
@@ -432,7 +470,8 @@ class FileProperties(QDialog):
         for row in range(table.rowCount()):
             name = table.item(row, 0).text() if table.item(row, 0) else ""
             value = table.item(row, 1).text() if table.item(row, 1) else ""
-            data.append((name, value))
+            unit = table.item(row, 2).text() if table.item(row, 1) else ""
+            data.append((name, value, unit))
         return data
 
 class TreatSpectra(QMainWindow):
@@ -611,7 +650,7 @@ class MainWindow(QMainWindow):
 
             # Enable context menu policy
             table_widget.setContextMenuPolicy(Qt.CustomContextMenu)
-            table_widget.customContextMenuRequested.connect(self.File_Properties)
+            table_widget.customContextMenuRequested.connect(self.file_properties)
 
             return table_widget
 
@@ -850,7 +889,7 @@ class MainWindow(QMainWindow):
         plt.show()
 
     def display_treated_spectrum(self):
-        pass
+        QMessageBox.information(self, "To do", "Displaying of treated spectra not yet implemented.")
 
     def treat_spectrum(self):
         # Get the item at the clicked position
@@ -870,7 +909,7 @@ class MainWindow(QMainWindow):
         self.File_Properties_window = FileProperties(self)
         self.File_Properties_window.exec_()
 
-    def File_Properties(self, pos):
+    def file_properties(self, pos):
         # Get the item at the clicked position
         item = self.table_widget.itemAt(pos)
 

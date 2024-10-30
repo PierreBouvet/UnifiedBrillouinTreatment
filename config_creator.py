@@ -1,6 +1,6 @@
 import configparser
 
-config_path = "/Users/pierrebouvet/Documents/Code/Ghost_treat/config.ini"
+config_path = "/Users/pierrebouvet/Documents/Code/UnifiedBrillouinTreatment/config.ini"
 
 def read_config():
     # Create a ConfigParser object
@@ -66,6 +66,7 @@ def create_config():
                       ["sample","sample"]]
     
     # Add properties to the configuration
+    config['Version'] = {"brillouin_bh5": "v0.1"}
     config['File Format'] = {}
     for e in file_format: config['File Format'][e[0]] = e[1]
     config['Database Columns'] = {}

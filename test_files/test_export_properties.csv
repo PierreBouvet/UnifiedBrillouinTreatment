@@ -1,0 +1,46 @@
+test_export_properties,2024-10-30 15:25:29,v0.1
+
+MEASURE
+Sample,,
+Date_of_measure,Tue Oct 22 14:07:56 2024,
+Exposure,,s
+Dimensionnality_of_measure,,
+"Sampling_Matrix_Size_(Nx,Ny,Nz)",,
+"Sampling_Step_Size_(dx,dy,dz)",,
+"Field_of_view_(X,Y,Z)",,
+
+SPECTROMETER
+Type,TFP,
+Model,,
+Wavelength_nm,532,nm
+Confocal_Pinhole_Diameter,,AU
+Detection_Lens_NA,,
+Detector_Model,,
+Detector_Type,Photon Counter,
+Filtering_Module,None,
+Illumination_Lens_NA,,
+Illumination_Power,,mW
+Illumination_Type,CW,
+Illumination_Wavelength,,nm
+Laser_Model,,
+Laser_Drift,,MHz/h
+Phonons_Measured,,
+Polarization_probed-analyzed,,
+Scan_Amplitude,16.1006,GHz
+Scanning_Strategy,point_scanning,
+Scattering_Angle,,degrees
+Spectral_Resolution,0.0157232421875,GHz
+Spectrometer_Resolution,,MHz
+Spectrometer_Type,,
+x-Mechanical_Resolution,,µm
+x-Optical_Resolution,,µm
+y-Mechanical_Resolution,,µm
+y-Optical_Resolution,,µm
+z-Mechanical_Resolution,,µm
+z-Optical_Resolution,,µm
+
+FILEPROP
+Filepath,/Users/pierrebouvet/Documents/Code/BH5_files/30deg_iris_5mm_scanAmp_400.bh5,
+BLS_HDF5_Version,0.1,
+Filepath,/Users/pierrebouvet/Documents/Code/BH5_files/30deg_iris_5mm_scanAmp_400.bh5,
+Name,30deg_iris_5mm_scanAmp_400,
