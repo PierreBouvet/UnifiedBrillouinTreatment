@@ -2,9 +2,11 @@
 
 ## Introduction to the project
 
-This project aims at proposing a standard interface to store and treat Brillouin Scattered spectra, particularly to be used by the BioBrillouin community. As such this User Interface has two goals
+This project aims at proposing a standard interface to store and treat Brillouin Scattered spectra, particularly to be used by the BioBrillouin community. As such this User Interface has the following goals:
 - Allow an easy conversion of spectra to a standardized BH5 format
+- Regroup a series of spectra obtained during an experiment in a single database
 - Standardize the treatment of Brillouin spectra with optimized algorithms
+- Allow basic statistical analysis on the treated data
 
 ## Setting up
 
