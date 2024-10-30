@@ -11,7 +11,7 @@ Dimensionnality_of_measure,0,
 ,,
 SPECTROMETER,,
 Type,TFP 6 pass,
-Model,JRS something,
+Model,JRS TFP-2,
 Wavelength_nm,660,nm
 Confocal_Pinhole_Diameter,,AU
 Detection_Lens_NA,0.2,
