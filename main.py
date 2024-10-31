@@ -572,15 +572,43 @@ class TreatSpectra(QMainWindow):
         QMessageBox.information(self, "To do", "Treatment of all spectra not implemented.")
     
     def treat_selected(self):
-        QMessageBox.information(self, "To do", "Treatment of selected spectra not implemented.")
-
+        # Extract the filepath of the file to treat
+        try:
+            selected_spectrum = self.combo_box.currentText()
+        except:
+            selected_spectrum = self.spectra_selected[0][1]
+        for spectrum in self.spectra_selected:
+            if spectrum[1] == selected_spectrum:
+                filepath = spectrum[2]
+        
+        # Open bh5 file
+        with h5py.File(filepath, 'a') as f:
+            spectrometer_type =  f.attrs["SPECTROMETER.Type"]
+            arr = f["Data"]["Raw_data"][:]
+            if spectrometer_type == "TFP": # If the spectrometer used was a TFP, create the frequency axis, add it to the bh5 file and plot it
+                scan_amplitude = float(f.attrs["SPECTROMETER.Scan_Amplitude"])
+                if "Frequency" in f["Data"].keys():
+                    if QMessageBox.question(self, 'Remove Spectrum', f"Do you want to replace the frequency axis stored in the BH5 file?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No):
+                        frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
+                        f["Data"]["Frequency"][...] = frequency
+                    else:
+                        frequency = f["Data"]["Frequency"][:]
+                else:
+                        frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
+                        f["Data"].create_dataset("Frequency", data = frequency)
+                self.ax.clear()
+                self.ax.plot(frequency, arr)
+                self.ax.set_title("Raw Spectrum")
+                self.ax.set_xlabel("Frequency shift (GHz)")
+                self.ax.set_ylabel("Counts on detector")
+                self.canvas.draw()
 
     def plot_raw_spectra(self, file_path):
         try:
             # Open the .bh5 file and extract the raw data
             with h5py.File(file_path, 'r') as f:
-                raw_data = f['Data']['Raw_data'][:]  # Assuming the data is stored in this path
-
+                raw_data = f['Data']['Raw_data'][:]
             self.ax.plot(raw_data)
             self.ax.set_title("Raw Spectrum")
             self.ax.set_xlabel("Spectral channels")
@@ -592,6 +620,22 @@ class TreatSpectra(QMainWindow):
 
     def get_frequency(self):
         QMessageBox.information(self, "To do", "Computation of frequency not yet implemented")
+
+    # def update_plot(self):
+    #     selected_spectrum = self.combo_box.currentText()
+    #     self.ax.clear()  # Clear previous plot
+
+    #     if selected_spectrum == "Display All":
+    #         self.plot_all_spectra()
+    #         self.frequency_button.setEnabled(False)  # Disable frequency button when all spectra are displayed
+    #     else:
+    #         # Plot only the selected spectrum
+    #         for spectrum in self.spectra_selected:
+    #             if spectrum[1] == selected_spectrum:
+    #                 self.plot_raw_spectra(spectrum[2])  # Assuming the file path is in the 3rd column (index 2)
+    #                 self.frequency_button.setEnabled(True)  # Enable the frequency button
+    #                 break
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
