@@ -572,6 +572,9 @@ class TreatSpectra(QMainWindow):
         QMessageBox.information(self, "To do", "Treatment of all spectra not implemented.")
 
     def treat_selected(self):
+        def enable_treat_button():
+            self.add_treatment_button.setEnabled(True)
+
         # Clear right pane
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
@@ -622,27 +625,55 @@ class TreatSpectra(QMainWindow):
                 self.ax.set_ylabel("Counts on detector")
                 self.canvas.draw()
 
-        # Create the combobox used to add a treatment step
+        # Create the combobox used to add treatment steps
         self.combo_box_treat = QComboBox()
         self.combo_box_treat.addItem("Treatmen steps")
         self.combo_box_treat.addItem("--Substract Noise Average--")
-        self.treat_all_spectra_button = QPushButton("Add Treatment to selected file")
+        self.combo_box_treat.addItem("--Normalize intensity of peak to unity--")
+        self.combo_box_treat.addItem("--DHO fit on peak doublet with elastic peak compensation--")
+        self.combo_box_treat.addItem("--DHO fit on peak doublet without elastic peak compensation--")
+        self.combo_box_treat.addItem("--Lorentzian fit on peak doublet with elastic peak compensation--")
+        self.combo_box_treat.addItem("--Lorentzian fit on peak doublet without elastic peak compensation--")
         
+        self.combo_box_treat.activated.connect(enable_treat_button)
+
+        self.add_treatment_button = QPushButton("Add treatment to selected data")
+        self.add_treatment_button.clicked.connect(self.add_treatment)
+        self.add_treatment_button.setEnabled(False)
 
         # Create a QTreeWidget for displaying treatment steps
-        self.tree_view = QTreeWidget()
-        self.tree_view.setColumnCount(2)
-        self.tree_view.setHeaderLabels(["Name", "Date Created"])
+        self.treeview = QTreeWidget()
+        self.treeview.setColumnCount(2)
+        self.treeview.setHeaderLabels(["Name", "Date Created"])
 
         # Add the initial raw data entry to the tree view
-        raw_data_item = QTreeWidgetItem(["raw_data", date_created])
-        frequency_item = QTreeWidgetItem(["frequency", date_frequency])
-        self.tree_view.addTopLevelItem(raw_data_item)
-        self.tree_view.addTopLevelItem(frequency_item)
+        self.treeview_treat_frequency_item = QTreeWidgetItem(["frequency", date_frequency])
+        self.treeview_treat_raw_data_item = QTreeWidgetItem(["raw_data", date_created])
+        self.treeview.addTopLevelItem(self.treeview_treat_frequency_item)
+        self.treeview.addTopLevelItem(self.treeview_treat_raw_data_item)
+        self.treeview_dict = {"frequency": {"parent": self.treeview_treat_frequency_item}, 
+                              "raw_data": {"parent": self.treeview_treat_raw_data_item}}
 
         # Add the tree view to the right layout
-        self.right_layout.addWidget(self.tree_view)
+        self.right_layout.addWidget(self.treeview)
+        self.right_layout.addWidget(self.combo_box_treat)
+        self.right_layout.addWidget(self.add_treatment_button)
+        self.right_layout.addStretch()
 
+    def add_treatment(self):
+        # Check if an item in the tree view is selected
+        selected_item = self.treeview.currentItem()
+        if selected_item is None:
+            QMessageBox.warning(self, "Selection Error", "Please select an item in the treatment steps.")
+            return
+
+        # Extract the name of the selected item in the tree view
+        selected_item_name = selected_item.text(0)
+
+        # Extract the selected treatment from the combo box
+        selected_treatment = self.combo_box_treat.currentText()
+
+        QMessageBox.information(self, "To do", f"Selected item name: {selected_item_name}, selected treatment: {selected_treatment}")
 
     def plot_raw_spectra(self, file_path):
         try:
