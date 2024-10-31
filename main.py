@@ -1,6 +1,6 @@
 import sys
 import sqlite3
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget, QTreeWidget, QTreeWidgetItem
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, Qt, QPoint
 import subprocess
@@ -570,8 +570,14 @@ class TreatSpectra(QMainWindow):
 
     def treat_all(self):
         QMessageBox.information(self, "To do", "Treatment of all spectra not implemented.")
-    
+
     def treat_selected(self):
+        # Clear right pane
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.deleteLater()
+
         # Extract the filepath of the file to treat
         try:
             selected_spectrum = self.combo_box.currentText()
@@ -581,28 +587,52 @@ class TreatSpectra(QMainWindow):
             if spectrum[1] == selected_spectrum:
                 filepath = spectrum[2]
         
-        # Open bh5 file
+        # Open bh5 file and get the raw data and frequency
         with h5py.File(filepath, 'a') as f:
-            spectrometer_type =  f.attrs["SPECTROMETER.Type"]
+            spectrometer_type = f.attrs["SPECTROMETER.Type"]
+            date_created = f.attrs["MEASURE.Date_of_measure"]
             arr = f["Data"]["Raw_data"][:]
-            if spectrometer_type == "TFP": # If the spectrometer used was a TFP, create the frequency axis, add it to the bh5 file and plot it
+            
+            # Generate or retrieve the frequency axis
+            if spectrometer_type == "TFP": 
                 scan_amplitude = float(f.attrs["SPECTROMETER.Scan_Amplitude"])
-                if "Frequency" in f["Data"].keys():
-                    if QMessageBox.question(self, 'Remove Spectrum', f"Do you want to replace the frequency axis stored in the BH5 file?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No):
+                if "Frequency" in f["Data"]:
+                    if QMessageBox.question(
+                        self, 'Replace Frequency Axis',
+                        "Do you want to replace the existing frequency axis?",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                    ) == QMessageBox.Yes:
                         frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
                         f["Data"]["Frequency"][...] = frequency
+                        f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     else:
                         frequency = f["Data"]["Frequency"][:]
                 else:
-                        frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
-                        f["Data"].create_dataset("Frequency", data = frequency)
+                    frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
+                    f["Data"].create_dataset("Frequency", data=frequency)
+                    f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # Plot the spectrum
                 self.ax.clear()
                 self.ax.plot(frequency, arr)
                 self.ax.set_title("Raw Spectrum")
                 self.ax.set_xlabel("Frequency shift (GHz)")
                 self.ax.set_ylabel("Counts on detector")
                 self.canvas.draw()
+
+        # Create a QTreeWidget for displaying treatment steps
+        self.tree_view = QTreeWidget()
+        self.tree_view.setColumnCount(2)
+        self.tree_view.setHeaderLabels(["Name", "Date Created"])
+
+        # Add the initial raw data entry to the tree view
+        raw_data_item = QTreeWidgetItem(["raw_data", date_created])
+        frequency_item = QTreeWidgetItem(["frequency", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        self.tree_view.addTopLevelItem(raw_data_item)
+        self.tree_view.addTopLevelItem(frequency_item)
+
+        # Add the tree view to the right layout
+        self.right_layout.addWidget(self.tree_view)
+
 
     def plot_raw_spectra(self, file_path):
         try:
@@ -617,24 +647,6 @@ class TreatSpectra(QMainWindow):
 
         except Exception as e:
             QMessageBox(self,"Plot failure",f"Failed to load or plot raw spectrum: {e}")
-
-    def get_frequency(self):
-        QMessageBox.information(self, "To do", "Computation of frequency not yet implemented")
-
-    # def update_plot(self):
-    #     selected_spectrum = self.combo_box.currentText()
-    #     self.ax.clear()  # Clear previous plot
-
-    #     if selected_spectrum == "Display All":
-    #         self.plot_all_spectra()
-    #         self.frequency_button.setEnabled(False)  # Disable frequency button when all spectra are displayed
-    #     else:
-    #         # Plot only the selected spectrum
-    #         for spectrum in self.spectra_selected:
-    #             if spectrum[1] == selected_spectrum:
-    #                 self.plot_raw_spectra(spectrum[2])  # Assuming the file path is in the 3rd column (index 2)
-    #                 self.frequency_button.setEnabled(True)  # Enable the frequency button
-    #                 break
 
 
 class MainWindow(QMainWindow):
