@@ -605,12 +605,15 @@ class TreatSpectra(QMainWindow):
                         frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
                         f["Data"]["Frequency"][...] = frequency
                         f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     else:
                         frequency = f["Data"]["Frequency"][:]
+                        date_frequency = f["Data"]["Frequency"].attrs["Date"]
                 else:
                     frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
                     f["Data"].create_dataset("Frequency", data=frequency)
                     f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 # Plot the spectrum
                 self.ax.clear()
                 self.ax.plot(frequency, arr)
@@ -619,6 +622,13 @@ class TreatSpectra(QMainWindow):
                 self.ax.set_ylabel("Counts on detector")
                 self.canvas.draw()
 
+        # Create the combobox used to add a treatment step
+        self.combo_box_treat = QComboBox()
+        self.combo_box_treat.addItem("Treatmen steps")
+        self.combo_box_treat.addItem("--Substract Noise Average--")
+        self.treat_all_spectra_button = QPushButton("Add Treatment to selected file")
+        
+
         # Create a QTreeWidget for displaying treatment steps
         self.tree_view = QTreeWidget()
         self.tree_view.setColumnCount(2)
@@ -626,7 +636,7 @@ class TreatSpectra(QMainWindow):
 
         # Add the initial raw data entry to the tree view
         raw_data_item = QTreeWidgetItem(["raw_data", date_created])
-        frequency_item = QTreeWidgetItem(["frequency", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        frequency_item = QTreeWidgetItem(["frequency", date_frequency])
         self.tree_view.addTopLevelItem(raw_data_item)
         self.tree_view.addTopLevelItem(frequency_item)
 

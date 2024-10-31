@@ -10,13 +10,17 @@ This project aims at proposing a standard interface to store and treat Brillouin
 
 ## Setting up
 
-To test the User Interface, you should open the main.py file and run it.
+To test the User Interface, you should open the main.py file and run it. All the required modules are listed in requirement.txt, which lists the configuration used in teh virutal environment hosting the project.
 
 ## Use
 
 ### BH5 attributes
 
 All the attributes that will be stored on the BH5 are listed in the "standard_parameters_v0.1.csv" file. This list of parameters is flexible: you can add your own parameters directly in the CSV file. To fill the value of a parameter, you can either create a custom CSV file and fill-in all the parameters or you can open the user interface and modify the parameters directly from the interface.
+
+### Treatment procedure
+
+The treatment process can be modified or adjusted inside the software and is displayed in the treeview of the treatment window of the software. We plan on exporting the treatment steps at one point in the future and to allow users to load treatment procedures.
 
 ### Current limitations
 
