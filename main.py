@@ -492,40 +492,47 @@ class TreatSpectra(QMainWindow):
         self.fig = Figure(figsize=(5, 4), dpi=100)
         self.canvas = FigureCanvas(self.fig)
         self.ax = self.fig.add_subplot(111)
-
-        # Add the Matplotlib toolbar
-        self.toolbar = NavigationToolbar(self.canvas, self)
         
         # Create a vertical layout for the canvas and toolbar
         left_layout = QVBoxLayout()
+        self.toolbar = NavigationToolbar(self.canvas, self) # Add the Matplotlib toolbar
         left_layout.addWidget(self.toolbar)  # Add toolbar at the top
         left_layout.addWidget(self.canvas)  # Add canvas below the toolbar
 
         # Right: Combo box for spectrum selection and treatment options
         self.right_layout = QVBoxLayout()
 
-        # Create and add a combo box to choose spectra
-        self.combo_box = QComboBox()
-        self.combo_box.addItem("Display All")
-        for spectrum in self.spectra_selected:
-            self.combo_box.addItem(spectrum[1])  # Assuming the second column is the spectrum name
+        # Vary presentation in function of the number of spectra to treat
+        if len(self.spectra_selected) == 1:
+            self.treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
+            self.treat_selected_spectrum_button.clicked.connect(self.treat_selected)
+            self.right_layout.addWidget(self.treat_selected_spectrum_button)
+        else:
+            # Create and add a combo box to choose spectra
+            self.combo_box = QComboBox()
+            self.combo_box.addItem("Display All")
+            for spectrum in self.spectra_selected:
+                self.combo_box.addItem(spectrum[1])
+            self.combo_box.currentIndexChanged.connect(self.select_spectrum)
 
-        self.combo_box.currentIndexChanged.connect(self.update_plot)
-        self.right_layout.addWidget(QLabel("Select Spectrum:"))
-        self.right_layout.addWidget(self.combo_box)
-
-        # Add a placeholder for the "Get Frequency" button
-        self.frequency_button = QPushButton("Get Frequency")
-        self.frequency_button.setEnabled(False)
-        self.frequency_button.clicked.connect(self.get_frequency)
-        self.right_layout.addWidget(self.frequency_button)
+            self.treat_all_spectra_button = QPushButton("Treat all selected spectra")
+            self.treat_all_spectra_button.clicked.connect(self.treat_all)
+            self.treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
+            self.treat_selected_spectrum_button.clicked.connect(self.treat_selected)
+            self.treat_selected_spectrum_button.setEnabled(False)
+        
+            self.right_layout.addWidget(self.treat_all_spectra_button)
+            self.right_layout.addWidget(QLabel("Or select Spectrum to treat:"))
+            self.right_layout.addWidget(self.combo_box)
+            self.right_layout.addWidget(self.treat_selected_spectrum_button)
 
         self.right_layout.addStretch()  # Push other widgets up
 
         # Add both sections to the main layout
-        main_layout.addLayout(left_layout)
         right_frame = QFrame()  # Create a frame for the right section
         right_frame.setLayout(self.right_layout)
+
+        main_layout.addLayout(left_layout)
         main_layout.addWidget(right_frame)
 
         # Set layout in central widget
@@ -539,13 +546,13 @@ class TreatSpectra(QMainWindow):
     def plot_all_spectra(self):
         self.ax.clear()  # Clear previous plots
         for spectrum in self.spectra_selected:
-            self.plot_raw_spectra(spectrum[2])  # Assuming the file path is in the 3rd column (index 2)
+            self.plot_raw_spectra(spectrum[2])
         self.ax.set_title("All Selected Spectra")
-        self.ax.set_xlabel("X-axis")
-        self.ax.set_ylabel("Y-axis")
+        self.ax.set_xlabel("Spectral channels")
+        self.ax.set_ylabel("Counts on detector")
         self.canvas.draw()
 
-    def update_plot(self):
+    def select_spectrum(self):
         selected_spectrum = self.combo_box.currentText()
         self.ax.clear()  # Clear previous plot
 
@@ -553,14 +560,20 @@ class TreatSpectra(QMainWindow):
             self.plot_all_spectra()
             self.frequency_button.setEnabled(False)  # Disable frequency button when all spectra are displayed
         else:
+            self.treat_selected_spectrum_button.setEnabled(True)
             # Plot only the selected spectrum
             for spectrum in self.spectra_selected:
                 if spectrum[1] == selected_spectrum:
-                    self.plot_raw_spectra(spectrum[2])  # Assuming the file path is in the 3rd column (index 2)
-                    self.frequency_button.setEnabled(True)  # Enable the frequency button
-                    break
+                    self.plot_raw_spectra(spectrum[2]) 
 
         self.canvas.draw()
+
+    def treat_all(self):
+        QMessageBox.information(self, "To do", "Treatment of all spectra not implemented.")
+    
+    def treat_selected(self):
+        QMessageBox.information(self, "To do", "Treatment of selected spectra not implemented.")
+
 
     def plot_raw_spectra(self, file_path):
         try:
@@ -570,18 +583,15 @@ class TreatSpectra(QMainWindow):
 
             self.ax.plot(raw_data)
             self.ax.set_title("Raw Spectrum")
-            self.ax.set_xlabel("X-axis")
-            self.ax.set_ylabel("Y-axis")
+            self.ax.set_xlabel("Spectral channels")
+            self.ax.set_ylabel("Counts on detector")
             self.canvas.draw()
 
         except Exception as e:
-            print(f"Failed to load or plot raw spectrum: {e}")
+            QMessageBox(self,"Plot failure",f"Failed to load or plot raw spectrum: {e}")
 
     def get_frequency(self):
-        # This is a placeholder action for the "Get Frequency" button
-        # In a real scenario, you would calculate frequency from the spectrum data.
-        selected_spectrum = self.combo_box.currentText()
-        QMessageBox.information(self, "Frequency Information", f"Frequency of {selected_spectrum}: Placeholder Value")
+        QMessageBox.information(self, "To do", "Computation of frequency not yet implemented")
 
 class MainWindow(QMainWindow):
     def __init__(self):
