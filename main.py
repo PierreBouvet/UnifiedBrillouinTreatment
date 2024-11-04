@@ -492,12 +492,17 @@ class TreatSpectra(QMainWindow):
         self.fig = Figure(figsize=(5, 4), dpi=100)
         self.canvas = FigureCanvas(self.fig)
         self.ax = self.fig.add_subplot(111)
-        
+
         # Create a vertical layout for the canvas and toolbar
         left_layout = QVBoxLayout()
-        self.toolbar = NavigationToolbar(self.canvas, self) # Add the Matplotlib toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)  # Add the Matplotlib toolbar
         left_layout.addWidget(self.toolbar)  # Add toolbar at the top
         left_layout.addWidget(self.canvas)  # Add canvas below the toolbar
+
+        # Frame to hold the left layout and fix its size
+        left_frame = QFrame()
+        left_frame.setLayout(left_layout)
+        left_frame.setFixedWidth(500)  # Set fixed width for left section
 
         # Right: Combo box for spectrum selection and treatment options
         self.right_layout = QVBoxLayout()
@@ -528,11 +533,13 @@ class TreatSpectra(QMainWindow):
 
         self.right_layout.addStretch()  # Push other widgets up
 
-        # Add both sections to the main layout
-        right_frame = QFrame()  # Create a frame for the right section
+        # Frame to hold the right layout and fix its size
+        right_frame = QFrame()
         right_frame.setLayout(self.right_layout)
+        right_frame.setFixedWidth(500)  # Set fixed width for right section
 
-        main_layout.addLayout(left_layout)
+        # Add both sections to the main layout
+        main_layout.addWidget(left_frame)
         main_layout.addWidget(right_frame)
 
         # Set layout in central widget
@@ -542,6 +549,7 @@ class TreatSpectra(QMainWindow):
 
         # Plot all spectra by default
         self.plot_all_spectra()
+
 
     def plot_all_spectra(self):
         self.ax.clear()  # Clear previous plots
