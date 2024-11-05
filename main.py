@@ -1,8 +1,8 @@
 import sys
 import sqlite3
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSize, Qt, QPoint
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QAbstractItemView, QSpinBox
+from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
+from PyQt5.QtCore import QSize, Qt
 import subprocess
 import os
 import pyperclip
@@ -16,7 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import csv
-import cv2
+from PIL import Image
 from datetime import datetime
 
 loc = "/Users/pierrebouvet/Documents/Code/UnifiedBrillouinTreatment/"
@@ -114,7 +114,8 @@ class ImportSpectra:
             QMessageBox.information(self.main_gui,"File already in database","The database has already a file with identical name. Please change the name of your file to add it to the database.")
             return
         
-        data_array = cv2.imread(self.filepath, 0)
+        data_array = Image.open(self.filepath)
+        data_array = np.array(data_array)
 
         # Create the bh5 file and generate associated command to add to database
         bh5_filepath = self.create_bh5_file(name, data_array)
@@ -532,6 +533,204 @@ class TreatSpectra(QMainWindow):
         
         self.initUI()
 
+    def add_treatment(self):
+        # Check if an item in the tree view is selected
+        selected_item = self.right_frame_dic["child"]["treeview_layout"]["child"]["elt"].currentItem()
+        if selected_item is None:
+            QMessageBox.warning(self, "Selection Error", "Please select an item in the treatment steps.")
+            return
+
+        # Extract the name of the selected item in the tree view
+        selected_item_name = selected_item.text(0)
+        treatment = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_treat"].currentText()
+
+        if treatment == "--Subtract Noise Average--": 
+            self.treat_subtract_noise_average()
+
+    def get_frequency(self, filepath, name, arr = None):
+        def for_TFP(self, f):
+            scan_amplitude = float(f.attrs["SPECTROMETER.Scan_Amplitude"])
+            if "Frequency" in f["Data"]:
+                if QMessageBox.question(
+                    self, 'Replace Frequency Axis',
+                    "Do you want to replace the existing frequency axis?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                ) == QMessageBox.Yes:
+                    frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
+                    f["Data"]["Frequency"][...] = frequency
+                    f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    frequency = f["Data"]["Frequency"][:]
+                    date_frequency = f["Data"]["Frequency"].attrs["Date"]
+            else:
+                frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
+                f["Data"].create_dataset("Frequency", data=frequency)
+                f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return frequency, date_frequency
+
+        def button_bin_visible():
+            text = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_bin"].currentText()
+            if text == "Bin signal options":
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_bin_button"].setEnabled(False)
+            else: 
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_bin_button"].setEnabled(True)
+
+        def bin_signal():
+            def apply_binning():
+                start = int(self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"]["bin_start_spinbox"].value())
+                stop = int(self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"]["bin_stop_spinbox"].value())
+                if text == "--Horizontally (sum along -)--":
+                    y = np.sum(arr[:,start:stop], axis = 1)
+                    y = y/np.max(y)
+                    y = y*arr.shape[0]
+                else:
+                    y = np.sum(arr[start:stop,:], axis = 0)
+                    y = y/np.max(y)
+                    y = y*arr.shape[1]
+                
+                with h5py.File(filepath, 'a') as f:
+                    group_data = f["Data"]
+                    if not "binned" in group_data:
+                        group_data.create_dataset("binned", data = y)
+                        group_data["binned"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        group_data["binned"].attrs["Parent"] = "Raw_data"
+                        group_data["binned"].attrs["Bin_axis"] = text[2]
+                        group_data["binned"].attrs["Bin_Start"] = str(start)
+                        group_data["binned"].attrs["Bin_Stop"] = str(stop)
+                    else:
+                        reply = QMessageBox.question(self, 'Update Binned file', f"Do you want to update the preexisting binned file?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                        if reply == QMessageBox.Yes:
+                            group_data["binned"][...] = y
+                            group_data["binned"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            group_data["binned"].attrs["Parent"] = "Raw_data"
+                            group_data["binned"].attrs["Bin_axis"] = text[2]
+                            group_data["binned"].attrs["Bin_Start"] = str(start)
+                            group_data["binned"].attrs["Bin_Stop"] = str(stop)
+                    self.update_treeview(filepath)
+
+                for k in self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"].keys():
+                    self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"][k].hide()
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_apply_button"].hide()
+                
+            def update_line():
+                start = int(self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"]["bin_start_spinbox"].value())
+                stop = int(self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"]["child"]["bin_stop_spinbox"].value())
+                if text == "--Horizontally (sum along -)--":
+                    y = np.sum(arr[:,start:stop], axis = 1)
+                    y = y/np.max(y)
+                    y = y*arr.shape[0]
+                else:
+                    y = np.sum(arr[start:stop,:], axis = 0)
+                    y = y/np.max(y)
+                    y = y*arr.shape[1]
+                x = np.arange(y.size)
+
+                for line in self.left_frame_dic["child"]["ax"].get_lines():
+                    line.remove()
+
+                self.left_frame_dic["child"]["ax"].plot(x,y,'r')
+                self.left_frame_dic["child"]["ax"].set_xlim((0,arr.shape[0]))
+                self.left_frame_dic["child"]["ax"].set_ylim((0,arr.shape[1]))
+                self.left_frame_dic["child"]["canvas"].draw()
+
+            # Hide combobox and button
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_bin_button"].hide()
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_bin"].hide()
+
+            #Retrieve axis on which apply the binning
+            text = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_bin"].currentText()
+
+            # Create a horizontal layout to hold the controls on the same line
+            bin_window_layout = QHBoxLayout()
+
+            # Set up the noise selection widgets
+            bin_start_spinbox = QSpinBox()
+            bin_start_spinbox.setFixedWidth(80)   # Adjust width as needed
+            bin_start_spinbox.setMinimum(0)
+            bin_start_spinbox.setValue(0)
+            bin_stop_spinbox = QSpinBox()
+            bin_stop_spinbox.setFixedWidth(80)   # Adjust width as needed
+            bin_stop_spinbox.setMinimum(0)
+            select_button = QPushButton("Apply Binning")
+            select_button.clicked.connect(self.activate_graph_selection)
+
+            # Add horizontal and veritcal specific values:
+            if text == "--Horizontally (sum along -)--":
+                bin_start_label = QLabel("Starting column:")
+                bin_stop_label = QLabel("Ending column:")
+                bin_start_spinbox.setMaximum(arr.shape[0])
+                bin_stop_spinbox.setMaximum(arr.shape[0])
+                bin_stop_spinbox.setValue(arr.shape[0])
+            else:
+                bin_start_label = QLabel("Starting line:")
+                bin_stop_label = QLabel("Ending line:")
+                bin_start_spinbox.setMaximum(arr.shape[1])
+                bin_stop_spinbox.setMaximum(arr.shape[1])
+                bin_stop_spinbox.setValue(arr.shape[1])
+            
+            # "Apply" button
+            bin_apply_button = QPushButton("Apply")
+            bin_apply_button.clicked.connect(apply_binning)
+
+            # Add these widgets to the layout and the dictionnary
+            bin_window_layout.addWidget(bin_start_label)
+            bin_window_layout.addWidget(bin_start_spinbox)
+            bin_window_layout.addWidget(bin_stop_label)
+            bin_window_layout.addWidget(bin_stop_spinbox)
+
+            bin_window_dic = {"bin_start_label": bin_start_label,
+                              "bin_start_spinbox": bin_start_spinbox,
+                              "bin_stop_label": bin_stop_label,
+                              "bin_stop_spinbox": bin_stop_spinbox}
+            self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addLayout(bin_window_layout)
+            self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addWidget(bin_apply_button)
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_window_layout"] = {"elt": bin_window_layout,
+                                                                                                     "child": bin_window_dic}
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["bin_apply_button"] = bin_apply_button
+            bin_start_spinbox.valueChanged.connect(update_line)
+            bin_stop_spinbox.valueChanged.connect(update_line)
+
+        # Open bh5 file and get the raw data and frequency
+        with h5py.File(filepath, 'a') as f:
+            spectrometer_type = f.attrs["SPECTROMETER.Type"]
+            if type(arr) == type(None): arr = f["Data"]["Raw_data"][:]
+            date_raw_data = f.attrs["MEASURE.Date_of_measure"]
+            
+            if len(arr.shape) == 1:
+                # Generate or retrieve the frequency axis
+                if spectrometer_type == "TFP": 
+                    frequency, date_frequency = for_TFP(self, f)
+                
+                    # Plot the spectrum on a frequency axis
+                    self.left_frame_dic["child"]["ax"].clear()
+                    self.left_frame_dic["child"]["ax"].plot(frequency, arr)
+                    self.left_frame_dic["child"]["ax"].set_title(name)
+                    self.left_frame_dic["child"]["ax"].set_xlabel("Frequency shift (GHz)")
+                    self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
+                    self.left_frame_dic["child"]["canvas"].draw()
+            
+            elif len(arr.shape) == 2:
+                # Adds the possibility to bin the signal
+                date_frequency = "NONE"
+                combo_box_bin = QComboBox()
+                combo_box_bin.addItem("Bin signal options")
+                combo_box_bin.addItem("--Horizontally (sum along -)--")
+                combo_box_bin.addItem("--Vertically (sum along |)--")
+                combo_box_bin.activated.connect(button_bin_visible)
+                
+                add_bin_button = QPushButton("Bin")
+                add_bin_button.clicked.connect(bin_signal)
+                add_bin_button.setEnabled(False)
+                
+                self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addWidget(combo_box_bin)
+                self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addWidget(add_bin_button)
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_bin"] = combo_box_bin
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_bin_button"] = add_bin_button
+            
+            return date_frequency, date_raw_data
+
     def initUI(self):
         def populate_left_frame(self):
             # Populate left frame
@@ -568,7 +767,7 @@ class TreatSpectra(QMainWindow):
             combo_box.currentIndexChanged.connect(self.select_spectrum)
             treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
             treat_selected_spectrum_button.clicked.connect(self.treat_selected)
-            treat_selected_spectrum_button.setEnabled(False)
+            if len(self.spectra_selected)>1: treat_selected_spectrum_button.setEnabled(False)
 
             # Position widgets
             treat_selection_layout.addWidget(treat_all_spectra_button)
@@ -629,10 +828,9 @@ class TreatSpectra(QMainWindow):
     def plot_all_spectra(self):
         self.left_frame_dic["child"]["ax"].clear()  # Clear previous plots
         for spectrum in self.spectra_selected:
-            self.plot_raw_spectra(spectrum[2])
+            filepath = spectrum[2]
+            self.plot_raw_spectra(filepath)
         self.left_frame_dic["child"]["ax"].set_title("All Selected Spectra")
-        self.left_frame_dic["child"]["ax"].set_xlabel("Spectral channels")
-        self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
         self.left_frame_dic["child"]["canvas"].draw()
 
     def plot_raw_spectra(self, file_path, title = "Raw Spectrum"):
@@ -640,11 +838,20 @@ class TreatSpectra(QMainWindow):
             # Open the .bh5 file and extract the raw data
             with h5py.File(file_path, 'r') as f:
                 raw_data = f['Data']['Raw_data'][:]
-            self.left_frame_dic["child"]["ax"].plot(raw_data)
-            self.left_frame_dic["child"]["ax"].set_title(title)
-            self.left_frame_dic["child"]["ax"].set_xlabel("Spectral channels")
-            self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
-            self.left_frame_dic["child"]["canvas"].draw()
+            if len(raw_data.shape) == 1:
+                self.left_frame_dic["child"]["ax"].plot(raw_data)
+                self.left_frame_dic["child"]["ax"].set_title(title)
+                self.left_frame_dic["child"]["ax"].set_xlabel("Spectral channels")
+                self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
+                self.left_frame_dic["child"]["canvas"].draw()
+            elif len(raw_data.shape) == 2:
+                self.left_frame_dic["child"]["ax"].imshow(raw_data)
+                self.left_frame_dic["child"]["ax"].set_title(title)
+                self.left_frame_dic["child"]["ax"].set_xlabel("X (pixels)")
+                self.left_frame_dic["child"]["ax"].set_ylabel("Y (pixels)")
+                self.left_frame_dic["child"]["ax"].set_xlim((0,raw_data.shape[0]))
+                self.left_frame_dic["child"]["ax"].set_ylim((0,raw_data.shape[1]))
+                self.left_frame_dic["child"]["canvas"].draw()            
 
         except Exception as e:
             QMessageBox(self,"Plot failure",f"Failed to load or plot raw spectrum: {e}")
@@ -695,14 +902,14 @@ class TreatSpectra(QMainWindow):
             self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_treat"] = combo_box_treat
             self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_treatment_button"] = add_treatment_button
             
-        def treeview_layout(self):
+        def treeview_layout(self, date_frequency, date_raw_data):
             # Create a QTreeWidget for displaying treatment steps
             treeview = QTreeWidget()
             treeview.setColumnCount(2)
             treeview.setHeaderLabels(["Name", "Date Created"])
 
             treeview_treat_frequency_item = QTreeWidgetItem(["frequency", date_frequency])
-            treeview_treat_raw_data_item = QTreeWidgetItem(["raw_data", date_created])
+            treeview_treat_raw_data_item = QTreeWidgetItem(["raw_data", date_raw_data])
 
             treeview.addTopLevelItem(treeview_treat_frequency_item)
             treeview.addTopLevelItem(treeview_treat_raw_data_item)
@@ -713,70 +920,67 @@ class TreatSpectra(QMainWindow):
             
             self.right_frame_dic["child"]["treeview_layout"]["child"] = {"elt": treeview, "child": treeview_dict}
 
+        def empty_treeview_layout(self):
+            # Create a QTreeWidget for displaying treatment steps
+            treeview = QTreeWidget()
+            treeview.setColumnCount(2)
+            treeview.setHeaderLabels(["Name", "Date Created"])
+
+            treeview_dic = {"elt": treeview, "child":{}}
+            self.right_frame_dic["child"]["treeview_layout"]["child"]["treeview"] = treeview_dic
+            self.right_frame_dic["child"]["treeview_layout"]["elt"].addWidget(treeview)
+
+            self.update_treeview(filepath)
+
         # Clear the spectrum selection layout 
         for k in self.right_frame_dic["child"]["treat_selection_layout"]["child"].keys():
             self.right_frame_dic["child"]["treat_selection_layout"]["child"][k].hide()
 
         # Extract the filepath of the file to treat
-        try: selected_spectrum = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box"].currentText()
-        except: selected_spectrum = self.spectra_selected[0][1]
+        if len(self.spectra_selected) == 1:
+            selected_spectrum = self.spectra_selected[0][1]
+        else:
+            try: selected_spectrum = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box"].currentText()
+            except: selected_spectrum = self.spectra_selected[0][1]
         for spectrum in self.spectra_selected:
             if spectrum[1] == selected_spectrum: filepath = spectrum[2]
-        
-        # Open bh5 file and get the raw data and frequency
-        with h5py.File(filepath, 'a') as f:
-            spectrometer_type = f.attrs["SPECTROMETER.Type"]
-            date_created = f.attrs["MEASURE.Date_of_measure"]
-            arr = f["Data"]["Raw_data"][:]
-            
-            # Generate or retrieve the frequency axis
-            if spectrometer_type == "TFP": 
-                scan_amplitude = float(f.attrs["SPECTROMETER.Scan_Amplitude"])
-                if "Frequency" in f["Data"]:
-                    if QMessageBox.question(
-                        self, 'Replace Frequency Axis',
-                        "Do you want to replace the existing frequency axis?",
-                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-                    ) == QMessageBox.Yes:
-                        frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
-                        f["Data"]["Frequency"][...] = frequency
-                        f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        frequency = f["Data"]["Frequency"][:]
-                        date_frequency = f["Data"]["Frequency"].attrs["Date"]
-                else:
-                    frequency = np.linspace(-scan_amplitude/2, scan_amplitude/2, arr.shape[-1])
-                    f["Data"].create_dataset("Frequency", data=frequency)
-                    f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Plot the spectrum on a frequency axis
-                self.left_frame_dic["child"]["ax"].clear()
-                self.left_frame_dic["child"]["ax"].plot(frequency, arr)
-                self.left_frame_dic["child"]["ax"].set_title(selected_spectrum)
-                self.left_frame_dic["child"]["ax"].set_xlabel("Frequency shift (GHz)")
-                self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
-                self.left_frame_dic["child"]["canvas"].draw()
 
-        treat_parameters_layout(self)
-        treeview_layout(self)
+        empty_treeview_layout(self)
+
+        date_frequency, date_raw_data = self.get_frequency(filepath, selected_spectrum)
+
+        # treat_parameters_layout(self)
+        # treeview_layout(self, date_frequency, date_raw_data)
 
         self.right_frame_dic["elt"].addStretch()
 
-    def add_treatment(self):
-        # Check if an item in the tree view is selected
-        selected_item = self.right_frame_dic["child"]["treeview_layout"]["child"]["elt"].currentItem()
-        if selected_item is None:
-            QMessageBox.warning(self, "Selection Error", "Please select an item in the treatment steps.")
-            return
+    def update_treeview(self, filepath):
+        self.right_frame_dic["child"]["treeview_layout"]["child"]["treeview"]["elt"].clear()
+        item_dict = {}  # Dictionary to hold references to QStandardItem by dataset name
 
-        # Extract the name of the selected item in the tree view
-        selected_item_name = selected_item.text(0)
-        treatment = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_treat"].currentText()
+        with h5py.File(filepath, "r") as f:
+            data_group = f["Data"]
 
-        if treatment == "--Subtract Noise Average--": 
-            self.treat_subtract_noise_average()
+            # Iterate over datasets in the group
+            for dataset_name, dataset in data_group.items():
+                # Get the creation date or set a default value
+                creation_date = dataset.attrs.get("Date", f.attrs["MEASURE.Date_of_measure"])
+
+                # Create a QTreeWidgetItem with the dataset name and creation date
+                dataset_item = QTreeWidgetItem([dataset_name, creation_date])
+
+                # Check if "Parent" attribute exists
+                parent_name = dataset.attrs.get("Parent", None)
+                if parent_name is None or parent_name not in item_dict:
+                    # No "Parent" attribute or parent not found: add as top-level item
+                    self.right_frame_dic["child"]["treeview_layout"]["child"]["treeview"]["elt"].addTopLevelItem(dataset_item)
+                else:
+                    # Add as a child of the specified parent item
+                    parent_item = item_dict[parent_name]
+                    parent_item.addChild(dataset_item)
+
+                # Add dataset_item to the dictionary for reference by other datasets
+                item_dict[dataset_name] = dataset_item
 
     def treat_subtract_noise_average(self):
         # Add "Add noise window" button
