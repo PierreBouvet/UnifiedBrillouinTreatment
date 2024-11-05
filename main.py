@@ -16,6 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import csv
+import cv2
 from datetime import datetime
 
 loc = "/Users/pierrebouvet/Documents/Code/UnifiedBrillouinTreatment/"
@@ -26,8 +27,10 @@ class ImportSpectra:
         self.filepath = filepath
         self.main_gui = main_gui
         (name,ext) = os.path.splitext(os.path.basename(filepath))
-        if ext == ".bh5": self.add_bh5_spectra(name)
-        elif ext == ".DAT": self.add_ghost_spectra(name)
+
+        if ext.lower() == ".bh5": self.add_bh5_spectra(name)
+        elif ext.lower() == ".dat": self.add_ghost_spectra(name)
+        elif ext.lower() == ".tif": self.add_tif_spectra(name)
     
     def add_bh5_spectra(self,name):
         timestmp = time.ctime(os.path.getctime(self.filepath))
@@ -46,7 +49,7 @@ class ImportSpectra:
         if self.check_in_db(name):
             QMessageBox.information(self.main_gui,"File already in database","The database has already a file with identical name. Please change the name of your file to add it to the database.")
             return
-        
+    
         with open(self.filepath, 'r') as file:
             lines = file.readlines()
             
@@ -102,7 +105,36 @@ class ImportSpectra:
                                     laser_wavelength = int(metadata["Wavelength"]),
                                     scan_amplitude = float(metadata["Scan amplitude"]))
 
+    def add_tif_spectra(self, name):
+        metadata = {}
+        data = []
+        timestmp = time.ctime(os.path.getctime(self.filepath))
+
+        if self.check_in_db(name):
+            QMessageBox.information(self.main_gui,"File already in database","The database has already a file with identical name. Please change the name of your file to add it to the database.")
+            return
+        
+        data_array = cv2.imread(self.filepath, 0)
+
+        # Create the bh5 file and generate associated command to add to database
+        bh5_filepath = self.create_bh5_file(name, data_array)
+        
+        # Assign attributes to bh5 file
+        with h5py.File(bh5_filepath, 'a') as f:
+            # 1. Create the root group and add attributes
+            f.attrs['FILEPROP.BLS_HDF5_Version'] = '0.1'
+            f.attrs['FILEPROP.Name'] = name
+            f.attrs['MEASURE.Date_of_measure'] = timestmp
+            f.attrs['SPECTROMETER.Illumination_Type'] = "CW"
+
+        # Add spectrum to database
+        self.db_manager.add_spectrum(name,
+                                    data_array, 
+                                    bh5_filepath,
+                                    date = timestmp)
+
     def check_in_db(self, name):
+        '''Checks if a given filename is already in the database'''
         with self.db_manager.connect() as conn:
             cursor = conn.cursor()
 
@@ -978,7 +1010,8 @@ class MainWindow(QMainWindow):
     
     def add_spectrum(self):
         # Open a file dialog to select a .DAT file
-        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Spectrum File", "", "DAT Files (*.DAT);;All Files (*)")
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Spectrum File", "", 
+                                                     "DAT Files (*.DAT);TIF Files (*.TIF);;All Files (*)")
 
         if file_paths:  # Check if a file was selected
             for file_path in file_paths:
