@@ -1,6 +1,6 @@
 import sys
 import sqlite3
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget, QTreeWidget, QTreeWidgetItem
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QHBoxLayout, QWidget, QFileDialog, QMessageBox, QVBoxLayout,QTableWidget, QTableWidgetItem, QMenu, QHeaderView, QFrame, QLabel, QComboBox, QDialog, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, Qt, QPoint
 import subprocess
@@ -485,58 +485,86 @@ class TreatSpectra(QMainWindow):
         self.initUI()
 
     def initUI(self):
+        def populate_left_frame(self):
+            # Populate left frame
+            left_layout = QVBoxLayout()
+            fig = Figure(figsize=(5, 4), dpi=100)
+            canvas = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            toolbar = NavigationToolbar(canvas, self)  # Add the Matplotlib toolbar
+            left_layout.addWidget(toolbar)  # Add toolbar at the top
+            left_layout.addWidget(canvas)  # Add canvas below the toolbar
+
+            dic_canvas = {"fig": fig,
+                          "canvas": canvas,
+                          "ax": ax,
+                          "toolbar": toolbar}
+            dic = {"elt": left_layout, "child": dic_canvas}
+            return dic
+            
+        def populate_right_frame(self):
+            right_layout = QVBoxLayout()
+            
+            # Define the three lqyouts of the treatment window
+            treat_selection_layout = QVBoxLayout()
+            treeview_layout = QVBoxLayout()
+            parameters_treat_layout = QVBoxLayout()
+
+            # Create widgets for the treat_selection layout
+            treat_all_spectra_button = QPushButton("Treat all selected spectra")
+            treat_all_spectra_button.clicked.connect(self.treat_all)
+            label_treat_all_spectra_button = QLabel("Or select Spectrum to treat:")
+            combo_box = QComboBox()
+            combo_box.addItem("Display All")
+            for spectrum in self.spectra_selected: combo_box.addItem(spectrum[1])
+            combo_box.currentIndexChanged.connect(self.select_spectrum)
+            treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
+            treat_selected_spectrum_button.clicked.connect(self.treat_selected)
+            treat_selected_spectrum_button.setEnabled(False)
+
+            # Position widgets
+            treat_selection_layout.addWidget(treat_all_spectra_button)
+            treat_selection_layout.addWidget(label_treat_all_spectra_button)
+            treat_selection_layout.addWidget(combo_box)
+            treat_selection_layout.addWidget(treat_selected_spectrum_button)
+
+            if len(self.spectra_selected) == 1:
+                treat_all_spectra_button.hide()
+                label_treat_all_spectra_button.hide()
+                combo_box.hide()
+            treat_selection_layout.addStretch()
+
+            # Organize right layout
+            right_layout.addLayout(treat_selection_layout)
+            right_layout.addLayout(treeview_layout)
+            right_layout.addLayout(parameters_treat_layout)
+
+            # Create the dictionnary of the elements
+            dic_treat_selection_layout = {"treat_all_spectra_button": treat_all_spectra_button,
+                                          "label_treat_all_spectra_button": label_treat_all_spectra_button,
+                                          "combo_box": combo_box,
+                                          "treat_selected_spectrum_button": treat_selected_spectrum_button}
+            dic_frames = {"treat_selection_layout": {"elt": treat_selection_layout, "child": dic_treat_selection_layout},
+                          "treeview_layout": {"elt": treeview_layout, "child": {}},
+                          "parameters_treat_layout": {"elt": parameters_treat_layout, "child": {}}}
+            dic = {"elt": right_layout, "child": dic_frames}
+            
+            return dic
+
         # Main layout
         main_layout = QHBoxLayout()
 
-        # Left: Matplotlib plot for raw spectra
-        self.fig = Figure(figsize=(5, 4), dpi=100)
-        self.canvas = FigureCanvas(self.fig)
-        self.ax = self.fig.add_subplot(111)
-
-        # Create a vertical layout for the canvas and toolbar
-        left_layout = QVBoxLayout()
-        self.toolbar = NavigationToolbar(self.canvas, self)  # Add the Matplotlib toolbar
-        left_layout.addWidget(self.toolbar)  # Add toolbar at the top
-        left_layout.addWidget(self.canvas)  # Add canvas below the toolbar
-
-        # Frame to hold the left layout and fix its size
+        # Left and right layouts
         left_frame = QFrame()
-        left_frame.setLayout(left_layout)
+        right_frame = QFrame()
+        
+        self.left_frame_dic = populate_left_frame(self)
+        left_frame.setLayout(self.left_frame_dic["elt"])
         left_frame.setFixedWidth(500)  # Set fixed width for left section
 
-        # Right: Combo box for spectrum selection and treatment options
-        self.right_layout = QVBoxLayout()
-
-        # Vary presentation in function of the number of spectra to treat
-        if len(self.spectra_selected) == 1:
-            self.treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
-            self.treat_selected_spectrum_button.clicked.connect(self.treat_selected)
-            self.right_layout.addWidget(self.treat_selected_spectrum_button)
-        else:
-            # Create and add a combo box to choose spectra
-            self.combo_box = QComboBox()
-            self.combo_box.addItem("Display All")
-            for spectrum in self.spectra_selected:
-                self.combo_box.addItem(spectrum[1])
-            self.combo_box.currentIndexChanged.connect(self.select_spectrum)
-
-            self.treat_all_spectra_button = QPushButton("Treat all selected spectra")
-            self.treat_all_spectra_button.clicked.connect(self.treat_all)
-            self.treat_selected_spectrum_button = QPushButton("Treat selected spectrum")
-            self.treat_selected_spectrum_button.clicked.connect(self.treat_selected)
-            self.treat_selected_spectrum_button.setEnabled(False)
-        
-            self.right_layout.addWidget(self.treat_all_spectra_button)
-            self.right_layout.addWidget(QLabel("Or select Spectrum to treat:"))
-            self.right_layout.addWidget(self.combo_box)
-            self.right_layout.addWidget(self.treat_selected_spectrum_button)
-
-        self.right_layout.addStretch()  # Push other widgets up
-
-        # Frame to hold the right layout and fix its size
-        right_frame = QFrame()
-        right_frame.setLayout(self.right_layout)
-        right_frame.setFixedWidth(500)  # Set fixed width for right section
+        self.right_frame_dic = populate_right_frame(self)
+        right_frame.setLayout(self.right_frame_dic["elt"])
+        right_frame.setFixedWidth(500)  # Set fixed width for left section
 
         # Add both sections to the main layout
         main_layout.addWidget(left_frame)
@@ -550,53 +578,102 @@ class TreatSpectra(QMainWindow):
         # Plot all spectra by default
         self.plot_all_spectra()
 
-
     def plot_all_spectra(self):
-        self.ax.clear()  # Clear previous plots
+        self.left_frame_dic["child"]["ax"].clear()  # Clear previous plots
         for spectrum in self.spectra_selected:
             self.plot_raw_spectra(spectrum[2])
-        self.ax.set_title("All Selected Spectra")
-        self.ax.set_xlabel("Spectral channels")
-        self.ax.set_ylabel("Counts on detector")
-        self.canvas.draw()
+        self.left_frame_dic["child"]["ax"].set_title("All Selected Spectra")
+        self.left_frame_dic["child"]["ax"].set_xlabel("Spectral channels")
+        self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
+        self.left_frame_dic["child"]["canvas"].draw()
+
+    def plot_raw_spectra(self, file_path, title = "Raw Spectrum"):
+        try:
+            # Open the .bh5 file and extract the raw data
+            with h5py.File(file_path, 'r') as f:
+                raw_data = f['Data']['Raw_data'][:]
+            self.left_frame_dic["child"]["ax"].plot(raw_data)
+            self.left_frame_dic["child"]["ax"].set_title(title)
+            self.left_frame_dic["child"]["ax"].set_xlabel("Spectral channels")
+            self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
+            self.left_frame_dic["child"]["canvas"].draw()
+
+        except Exception as e:
+            QMessageBox(self,"Plot failure",f"Failed to load or plot raw spectrum: {e}")
 
     def select_spectrum(self):
-        selected_spectrum = self.combo_box.currentText()
-        self.ax.clear()  # Clear previous plot
+        self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box"]
+        selected_spectrum = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box"].currentText()
+        self.left_frame_dic["child"]["ax"].clear()  # Clear previous plot
 
         if selected_spectrum == "Display All":
             self.plot_all_spectra()
-            self.frequency_button.setEnabled(False)  # Disable frequency button when all spectra are displayed
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["treat_selected_spectrum_button"].setEnabled(False)
         else:
-            self.treat_selected_spectrum_button.setEnabled(True)
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["treat_selected_spectrum_button"].setEnabled(True)
             # Plot only the selected spectrum
+            print(selected_spectrum)
             for spectrum in self.spectra_selected:
-                if spectrum[1] == selected_spectrum:
-                    self.plot_raw_spectra(spectrum[2]) 
+                if spectrum[1] == selected_spectrum: self.plot_raw_spectra(spectrum[2], selected_spectrum) 
 
-        self.canvas.draw()
+        self.left_frame_dic["child"]["canvas"].draw()
 
     def treat_all(self):
         QMessageBox.information(self, "To do", "Treatment of all spectra not implemented.")
 
     def treat_selected(self):
-        def enable_treat_button():
-            self.add_treatment_button.setEnabled(True)
+        def treat_parameters_layout(self):
+            def enable_treat_button():
+                self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_treatment_button"].setEnabled(True)
 
-        # Clear right pane
-        for i in reversed(range(self.right_layout.count())):
-            widget = self.right_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.deleteLater()
+            combo_box_treat = QComboBox()
+            combo_box_treat.addItem("Treatmen steps")
+            combo_box_treat.addItem("--Subtract Noise Average--")
+            combo_box_treat.addItem("--Normalize intensity of peak to unity--")
+            combo_box_treat.addItem("--Decovolve spectrum--")
+            combo_box_treat.addItem("--DHO fit on peak doublet with elastic peak compensation--")
+            combo_box_treat.addItem("--DHO fit on peak doublet without elastic peak compensation--")
+            combo_box_treat.addItem("--Lorentzian fit on peak doublet with elastic peak compensation--")
+            combo_box_treat.addItem("--Lorentzian fit on peak doublet without elastic peak compensation--")
+            combo_box_treat.activated.connect(enable_treat_button)
+
+            add_treatment_button = QPushButton("Add treatment to selected data")
+            add_treatment_button.clicked.connect(self.add_treatment)
+            add_treatment_button.setEnabled(False)
+
+            self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addWidget(combo_box_treat)
+            self.right_frame_dic["child"]["treat_selection_layout"]["elt"].addWidget(add_treatment_button)
+
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_treat"] = combo_box_treat
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"]["add_treatment_button"] = add_treatment_button
+            
+        def treeview_layout(self):
+            # Create a QTreeWidget for displaying treatment steps
+            treeview = QTreeWidget()
+            treeview.setColumnCount(2)
+            treeview.setHeaderLabels(["Name", "Date Created"])
+
+            treeview_treat_frequency_item = QTreeWidgetItem(["frequency", date_frequency])
+            treeview_treat_raw_data_item = QTreeWidgetItem(["raw_data", date_created])
+
+            treeview.addTopLevelItem(treeview_treat_frequency_item)
+            treeview.addTopLevelItem(treeview_treat_raw_data_item)
+            treeview_dict = {"frequency": {"parent": treeview_treat_frequency_item}, 
+                                "raw_data": {"parent": treeview_treat_raw_data_item}}
+            
+            self.right_frame_dic["child"]["treeview_layout"]["elt"].addWidget(treeview)
+            
+            self.right_frame_dic["child"]["treeview_layout"]["child"] = {"elt": treeview, "child": treeview_dict}
+
+        # Clear the spectrum selection layout 
+        for k in self.right_frame_dic["child"]["treat_selection_layout"]["child"].keys():
+            self.right_frame_dic["child"]["treat_selection_layout"]["child"][k].hide()
 
         # Extract the filepath of the file to treat
-        try:
-            selected_spectrum = self.combo_box.currentText()
-        except:
-            selected_spectrum = self.spectra_selected[0][1]
+        try: selected_spectrum = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box"].currentText()
+        except: selected_spectrum = self.spectra_selected[0][1]
         for spectrum in self.spectra_selected:
-            if spectrum[1] == selected_spectrum:
-                filepath = spectrum[2]
+            if spectrum[1] == selected_spectrum: filepath = spectrum[2]
         
         # Open bh5 file and get the raw data and frequency
         with h5py.File(filepath, 'a') as f:
@@ -625,78 +702,103 @@ class TreatSpectra(QMainWindow):
                     f["Data"].create_dataset("Frequency", data=frequency)
                     f["Data"]["Frequency"].attrs["Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     date_frequency = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Plot the spectrum
-                self.ax.clear()
-                self.ax.plot(frequency, arr)
-                self.ax.set_title("Raw Spectrum")
-                self.ax.set_xlabel("Frequency shift (GHz)")
-                self.ax.set_ylabel("Counts on detector")
-                self.canvas.draw()
+                
+                # Plot the spectrum on a frequency axis
+                self.left_frame_dic["child"]["ax"].clear()
+                self.left_frame_dic["child"]["ax"].plot(frequency, arr)
+                self.left_frame_dic["child"]["ax"].set_title(selected_spectrum)
+                self.left_frame_dic["child"]["ax"].set_xlabel("Frequency shift (GHz)")
+                self.left_frame_dic["child"]["ax"].set_ylabel("Counts on detector")
+                self.left_frame_dic["child"]["canvas"].draw()
 
-        # Create the combobox used to add treatment steps
-        self.combo_box_treat = QComboBox()
-        self.combo_box_treat.addItem("Treatmen steps")
-        self.combo_box_treat.addItem("--Substract Noise Average--")
-        self.combo_box_treat.addItem("--Normalize intensity of peak to unity--")
-        self.combo_box_treat.addItem("--DHO fit on peak doublet with elastic peak compensation--")
-        self.combo_box_treat.addItem("--DHO fit on peak doublet without elastic peak compensation--")
-        self.combo_box_treat.addItem("--Lorentzian fit on peak doublet with elastic peak compensation--")
-        self.combo_box_treat.addItem("--Lorentzian fit on peak doublet without elastic peak compensation--")
-        
-        self.combo_box_treat.activated.connect(enable_treat_button)
+        treat_parameters_layout(self)
+        treeview_layout(self)
 
-        self.add_treatment_button = QPushButton("Add treatment to selected data")
-        self.add_treatment_button.clicked.connect(self.add_treatment)
-        self.add_treatment_button.setEnabled(False)
-
-        # Create a QTreeWidget for displaying treatment steps
-        self.treeview = QTreeWidget()
-        self.treeview.setColumnCount(2)
-        self.treeview.setHeaderLabels(["Name", "Date Created"])
-
-        # Add the initial raw data entry to the tree view
-        self.treeview_treat_frequency_item = QTreeWidgetItem(["frequency", date_frequency])
-        self.treeview_treat_raw_data_item = QTreeWidgetItem(["raw_data", date_created])
-        self.treeview.addTopLevelItem(self.treeview_treat_frequency_item)
-        self.treeview.addTopLevelItem(self.treeview_treat_raw_data_item)
-        self.treeview_dict = {"frequency": {"parent": self.treeview_treat_frequency_item}, 
-                              "raw_data": {"parent": self.treeview_treat_raw_data_item}}
-
-        # Add the tree view to the right layout
-        self.right_layout.addWidget(self.treeview)
-        self.right_layout.addWidget(self.combo_box_treat)
-        self.right_layout.addWidget(self.add_treatment_button)
-        self.right_layout.addStretch()
+        self.right_frame_dic["elt"].addStretch()
 
     def add_treatment(self):
         # Check if an item in the tree view is selected
-        selected_item = self.treeview.currentItem()
+        selected_item = self.right_frame_dic["child"]["treeview_layout"]["child"]["elt"].currentItem()
         if selected_item is None:
             QMessageBox.warning(self, "Selection Error", "Please select an item in the treatment steps.")
             return
 
         # Extract the name of the selected item in the tree view
         selected_item_name = selected_item.text(0)
+        treatment = self.right_frame_dic["child"]["treat_selection_layout"]["child"]["combo_box_treat"].currentText()
 
-        # Extract the selected treatment from the combo box
-        selected_treatment = self.combo_box_treat.currentText()
+        if treatment == "--Subtract Noise Average--": 
+            self.treat_subtract_noise_average()
 
-        QMessageBox.information(self, "To do", f"Selected item name: {selected_item_name}, selected treatment: {selected_treatment}")
+    def treat_subtract_noise_average(self):
+        # Add "Add noise window" button
+        QMessageBox.information(self, "Noise Window", "Applyting Noise window")
+        return
 
-    def plot_raw_spectra(self, file_path):
-        try:
-            # Open the .bh5 file and extract the raw data
-            with h5py.File(file_path, 'r') as f:
-                raw_data = f['Data']['Raw_data'][:]
-            self.ax.plot(raw_data)
-            self.ax.set_title("Raw Spectrum")
-            self.ax.set_xlabel("Spectral channels")
-            self.ax.set_ylabel("Counts on detector")
-            self.canvas.draw()
+        self.add_noise_window_button = QPushButton("Add noise window")
+        self.add_noise_window_button.clicked.connect(self.add_noise_window)
+        self.right_layout.addWidget(self.add_noise_window_button)
 
-        except Exception as e:
-            QMessageBox(self,"Plot failure",f"Failed to load or plot raw spectrum: {e}")
+    def add_noise_window(self):
+        # Create a horizontal layout to hold the controls on the same line
+        noise_window_layout = QHBoxLayout()
 
+        # Set up the noise selection widgets
+        self.window_start_label = QLabel("Window Start:")
+        self.window_start_text = QTextEdit()
+        self.window_start_text.setFixedHeight(25)  # Set height to match button
+        self.window_start_text.setFixedWidth(80)   # Adjust width as needed
+        self.window_stop_label = QLabel("Window Stop:")
+        self.window_stop_text = QTextEdit()
+        self.window_stop_text.setFixedHeight(25)  # Set height to match button
+        self.window_stop_text.setFixedWidth(80)   # Adjust width as needed
+        self.select_button = QPushButton("Select")
+        self.select_button.clicked.connect(self.activate_graph_selection)
+
+        # Add these widgets to the layout
+        noise_window_layout.addWidget(self.window_start_label)
+        noise_window_layout.addWidget(self.window_start_text)
+        noise_window_layout.addWidget(self.window_stop_label)
+        noise_window_layout.addWidget(self.window_stop_text)
+        noise_window_layout.addWidget(self.select_button)
+        self.right_layout.addLayout(noise_window_layout)
+
+        # "Apply" button
+        try: self.apply_button.hide()
+        except: pass
+        self.apply_button = QPushButton("Apply")
+        self.apply_button.clicked.connect(self.apply_noise_window)
+        self.right_layout.addWidget(self.apply_button)
+        
+    def activate_graph_selection(self):
+        # Enable graph interactivity
+        self.clicks = []
+        self.cid = self.left_frame_dic["child"]["canvas"].mpl_connect("button_press_event", self.on_click)
+
+    def on_click(self, event):
+        # Record click positions and draw vertical lines
+        if len(self.clicks) < 2:  # Only take two points
+            self.clicks.append(event.xdata)
+            self.left_frame_dic["child"]["ax"].axvline(event.xdata, color="red")
+            self.left_frame_dic["child"]["canvas"].draw()
+            
+            # Populate the TextEdit widgets with the selected points
+            if len(self.clicks) == 1:
+                self.window_start_text.setText(str(self.clicks[0]))
+            elif len(self.clicks) == 2:
+                self.window_stop_text.setText(str(self.clicks[1]))
+                self.highlight_region()
+
+    def highlight_region(self):
+        # Highlight the region between the two clicks
+        self.left_frame_dic["child"]["ax"].fill_betweenx(
+            self.left_frame_dic["child"]["ax"].get_ylim(), self.clicks[0], self.clicks[1], color="yellow", alpha=0.3
+        )
+        self.left_frame_dic["child"]["canvas"].draw()
+
+    def apply_noise_window(self):
+        # Logic for applying the noise window
+        QMessageBox.information(self, "Noise Window", "Noise window applied.")
 
 class MainWindow(QMainWindow):
     def __init__(self):
