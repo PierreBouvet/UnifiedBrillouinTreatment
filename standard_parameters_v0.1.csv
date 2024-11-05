@@ -21,7 +21,6 @@ Filtering_Module,,
 Illumination_Lens_NA,,
 Illumination_Power,,mW
 Illumination_Type,,
-Illumination_Wavelength,,nm
 Laser_Model,,
 Laser_Drift,,MHz/h
 Phonons_Measured,,
@@ -31,7 +30,6 @@ Scanning_Strategy,,
 Scattering_Angle,,degrees
 Spectral_Resolution,,GHz
 Spectrometer_Resolution,,MHz
-Spectrometer_Type,,
 x-Mechanical_Resolution,,µm
 x-Optical_Resolution,,µm
 y-Mechanical_Resolution,,µm

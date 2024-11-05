@@ -269,6 +269,22 @@ class DatabaseManager:
         except sqlite3.Error as e:
             raise sqlite3.Error(f"Failed to remove spectrum located at {filepath}: {e}")
 
+    def update_database_by_filepath(self, file_path, updates):
+        with self.connect() as conn:
+            cursor = conn.cursor()
+            
+            # Create the SET clause dynamically from the dictionary of updates
+            set_clause = ", ".join([f"{col} = ?" for col in updates.keys()])
+            values = list(updates.values())
+            values.append(file_path)  # Add the file path as the last parameter
+            
+            # SQL update query based on file_path
+            sql_query = f"UPDATE spectra SET {set_clause} WHERE filepath = ?"
+            
+            # Execute the query
+            cursor.execute(sql_query, values)
+            conn.commit()
+
 class FileProperties(QDialog):
     def __init__(self, parent=None):
         self.parent = parent
@@ -843,7 +859,85 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Spectra Treatment GUI")
         self.create_GUI()
+
+    def add_db_tools(self):
+        # Create a vertical layout for the new buttons
+        db_tools_layout = QVBoxLayout()
+
+        # Create the buttons for database operations
+        add_spectrum_button = QPushButton()
+        add_spectrum_button.setIcon(QIcon(loc+"img/add_spectra.png"))
+        add_spectrum_button.setIconSize(self.icon_size)
+        add_spectrum_button.setFixedSize(50,50)
+        add_spectrum_button.setToolTip("Add a spectrum to the database")
+        add_spectrum_button.clicked.connect(self.add_spectrum)
+
+        remove_spectrum_button = QPushButton()
+        remove_spectrum_button.setIcon(QIcon(loc+"img/remove_spectra.png"))
+        remove_spectrum_button.setIconSize(self.icon_size)
+        remove_spectrum_button.setFixedSize(50,50)
+        remove_spectrum_button.setToolTip("Remove the spectrum/a from database")
+        remove_spectrum_button.clicked.connect(self.remove_spectrum)  # Placeholder function
+
+        display_raw_spectrum_button = QPushButton()
+        display_raw_spectrum_button.setIcon(QIcon(loc+"img/display_raw_spectra.png"))
+        display_raw_spectrum_button.setIconSize(self.icon_size)
+        display_raw_spectrum_button.setFixedSize(50,50)
+        display_raw_spectrum_button.setToolTip("Display the raw spectrum/a")
+        display_raw_spectrum_button.clicked.connect(self.display_raw_spectrum)  # Placeholder function
+
+        display_treated_spectrum_button = QPushButton()
+        display_treated_spectrum_button.setIcon(QIcon(loc+"img/display_treat_spectra.png"))
+        display_treated_spectrum_button.setIconSize(self.icon_size)
+        display_treated_spectrum_button.setFixedSize(50,50)
+        display_treated_spectrum_button.setToolTip("Display the treated spectrum/a")
+        display_treated_spectrum_button.clicked.connect(self.display_treated_spectrum)  # Placeholder function
+
+        treat_spectrum_button = QPushButton()
+        treat_spectrum_button.setIcon(QIcon(loc+"img/treat_spectra.png"))
+        treat_spectrum_button.setIconSize(self.icon_size)
+        treat_spectrum_button.setFixedSize(50,50)
+        treat_spectrum_button.setToolTip("Treat the selected spectrum/a")
+        treat_spectrum_button.clicked.connect(self.treat_spectrum)  # Placeholder function
+
+        # Add buttons to the vertical layout
+        self.left_button_box.addWidget(add_spectrum_button)
+        self.left_button_box.addWidget(remove_spectrum_button)
+        self.left_button_box.addWidget(display_raw_spectrum_button)
+        self.left_button_box.addWidget(treat_spectrum_button)
+        self.left_button_box.addWidget(display_treated_spectrum_button)
+        
+
+        # Add the new layout to the main layout
+        self.centralWidget().layout().addLayout(db_tools_layout)
+
+        self.db_tools = True
     
+    def add_spectrum(self):
+        # Open a file dialog to select a .DAT file
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Spectrum File", "", 
+                                                     "DAT Files (*.DAT);TIF Files (*.TIF);;All Files (*)")
+
+        if file_paths:  # Check if a file was selected
+            for file_path in file_paths:
+                try:
+                    ImportSpectra(self.db_manager, file_path, self)
+                    
+                    #Update the table
+                    self.update_table()
+
+                except sqlite3.Error as e:
+                    QMessageBox.critical(self, "Error", f"Failed to add spectrum: {e}")
+
+    def apply_column_selection(self, dialog):
+        # Loop through all checkboxes and show/hide columns based on their state
+        for checkbox, index in self.column_checkboxes:
+            if checkbox.isChecked():
+                self.table_widget.setColumnHidden(index, False)  # Show the column
+            else:
+                self.table_widget.setColumnHidden(index, True)  # Hide the column
+        dialog.close()
+  
     def create_GUI(self):
         def create_left_buttons(self):
             left_button_box = QHBoxLayout()
@@ -926,172 +1020,6 @@ class MainWindow(QMainWindow):
         # Set the main layout to the central widget
         central_widget.setLayout(main_layout)
 
-    def new_db(self):
-        # Open a file dialog to select the location and name for the new database
-        db_path, _ = QFileDialog.getSaveFileName(self, "Save New Database", "", "SQLite Database (*.db);;All Files (*)")
-
-        if db_path:  # Check if a path was selected
-            try:
-                # Create a new DatabaseManager instance
-                self.db_manager = DatabaseManager(db_path, self.config)
-                self.db_manager.create_table()
-                self.add_db_tools()  # Call to add database tools
-
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to create database: {e}")
-
-    def open_db(self):
-        # Open a file dialog to select an existing database
-        db_path, _ = QFileDialog.getOpenFileName(self, "Open Database", "", "SQLite Database (*.db);;All Files (*)")
-
-        if db_path:  # Check if a path was selected
-            try:
-                # Create a new DatabaseManager instance
-                self.db_manager = DatabaseManager(db_path, self.config)
-                self.db_manager.connect(compatibility=True)
-                if not self.db_tools: self.add_db_tools()  # Call to add database tools
-                self.update_table(init = True)
-
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to open database: {e}")
-
-    def add_db_tools(self):
-        # Create a vertical layout for the new buttons
-        db_tools_layout = QVBoxLayout()
-
-        # Create the buttons for database operations
-        add_spectrum_button = QPushButton()
-        add_spectrum_button.setIcon(QIcon(loc+"img/add_spectra.png"))
-        add_spectrum_button.setIconSize(self.icon_size)
-        add_spectrum_button.setFixedSize(50,50)
-        add_spectrum_button.setToolTip("Add a spectrum to the database")
-        add_spectrum_button.clicked.connect(self.add_spectrum)
-
-        remove_spectrum_button = QPushButton()
-        remove_spectrum_button.setIcon(QIcon(loc+"img/remove_spectra.png"))
-        remove_spectrum_button.setIconSize(self.icon_size)
-        remove_spectrum_button.setFixedSize(50,50)
-        remove_spectrum_button.setToolTip("Remove the spectrum/a from database")
-        remove_spectrum_button.clicked.connect(self.remove_spectrum)  # Placeholder function
-
-        display_raw_spectrum_button = QPushButton()
-        display_raw_spectrum_button.setIcon(QIcon(loc+"img/display_raw_spectra.png"))
-        display_raw_spectrum_button.setIconSize(self.icon_size)
-        display_raw_spectrum_button.setFixedSize(50,50)
-        display_raw_spectrum_button.setToolTip("Display the raw spectrum/a")
-        display_raw_spectrum_button.clicked.connect(self.display_raw_spectrum)  # Placeholder function
-
-        display_treated_spectrum_button = QPushButton()
-        display_treated_spectrum_button.setIcon(QIcon(loc+"img/display_treat_spectra.png"))
-        display_treated_spectrum_button.setIconSize(self.icon_size)
-        display_treated_spectrum_button.setFixedSize(50,50)
-        display_treated_spectrum_button.setToolTip("Display the treated spectrum/a")
-        display_treated_spectrum_button.clicked.connect(self.display_treated_spectrum)  # Placeholder function
-
-        treat_spectrum_button = QPushButton()
-        treat_spectrum_button.setIcon(QIcon(loc+"img/treat_spectra.png"))
-        treat_spectrum_button.setIconSize(self.icon_size)
-        treat_spectrum_button.setFixedSize(50,50)
-        treat_spectrum_button.setToolTip("Treat the selected spectrum/a")
-        treat_spectrum_button.clicked.connect(self.treat_spectrum)  # Placeholder function
-
-        # Add buttons to the vertical layout
-        self.left_button_box.addWidget(add_spectrum_button)
-        self.left_button_box.addWidget(remove_spectrum_button)
-        self.left_button_box.addWidget(display_raw_spectrum_button)
-        self.left_button_box.addWidget(treat_spectrum_button)
-        self.left_button_box.addWidget(display_treated_spectrum_button)
-        
-
-        # Add the new layout to the main layout
-        self.centralWidget().layout().addLayout(db_tools_layout)
-
-        self.db_tools = True
-    
-    def add_spectrum(self):
-        # Open a file dialog to select a .DAT file
-        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Spectrum File", "", 
-                                                     "DAT Files (*.DAT);TIF Files (*.TIF);;All Files (*)")
-
-        if file_paths:  # Check if a file was selected
-            for file_path in file_paths:
-                try:
-                    ImportSpectra(self.db_manager, file_path, self)
-                    
-                    #Update the table
-                    self.update_table()
-
-                except sqlite3.Error as e:
-                    QMessageBox.critical(self, "Error", f"Failed to add spectrum: {e}")
-
-    def apply_column_selection(self, dialog):
-        # Loop through all checkboxes and show/hide columns based on their state
-        for checkbox, index in self.column_checkboxes:
-            if checkbox.isChecked():
-                self.table_widget.setColumnHidden(index, False)  # Show the column
-            else:
-                self.table_widget.setColumnHidden(index, True)  # Hide the column
-        dialog.close()
-
-    def show_column_selector(self, pos):
-        context_menu = QMenu(self)
-        column_names = [e for e in self.config['Database Columns']]  # Fetch column names from config
-
-        for i, name in enumerate(column_names):
-            action = context_menu.addAction(name)
-            action.setCheckable(True)
-            action.setChecked(not self.table_widget.isColumnHidden(i))  # Check if column is visible
-
-            # Use functools.partial to capture the index correctly
-            action.triggered.connect(partial(self.toggle_column_visibility, i))
-
-        context_menu.exec_(self.table_widget.viewport().mapToGlobal(pos))  # Use the click position
-
-    def toggle_column_visibility(self, index, checked):
-        self.table_widget.setColumnHidden(index, not checked)  # Show the column if checked
-
-    def remove_spectrum(self):
-        # Get the selected rows from the table
-        selected_items = self.table_widget.selectedItems()
-        spectra = self.db_manager.fetch_spectra()
-        
-        if selected_items:
-            spectra_to_remove = []
-            for item in selected_items:
-                row = item.row()
-                spectra_to_remove.append(spectra[row])
-            
-            # Confirm deletion from the database
-            reply = QMessageBox.question(
-                self, 'Remove Spectrum',
-                f"Are you sure you want to remove the selected spectra from the database?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
-                for spectrum_id in spectra_to_remove:
-                    try:
-                        print(spectrum_id[2])
-                        # Call DatabaseManager to remove the spectrum
-                        self.db_manager.remove_spectrum(spectrum_id[2])
-                        
-                        # Ask if BH5 file should also be deleted
-                        bh5_file_path = spectrum_id[2]
-                        if os.path.isfile(bh5_file_path):
-                            delete_bh5 = QMessageBox.question(
-                                self, 'Delete BH5 File',
-                                f"Do you also want to delete the BH5 file for spectrum ID {spectrum_id[1]}?",
-                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-                            )
-                            if delete_bh5 == QMessageBox.Yes:
-                                os.remove(bh5_file_path)
-                        
-                        # Update the table after removal
-                        self.update_table()
-
-                    except sqlite3.Error as e:
-                        QMessageBox.critical(self, "Error", f"Failed to remove spectrum: {e}")
-
     def display_raw_spectrum(self):
         # Get the item at the clicked position
         selected_items = self.table_widget.selectedItems()
@@ -1141,24 +1069,6 @@ class MainWindow(QMainWindow):
     def display_treated_spectrum(self):
         QMessageBox.information(self, "To do", "Displaying of treated spectra not yet implemented.")
 
-    def treat_spectrum(self):
-        # Get the item at the clicked position
-        selected_items = self.table_widget.selectedItems()
-        spectra = self.db_manager.fetch_spectra()  # Fetch spectra from the database
-
-        spectra_selected = [spectra[item.row()] for item in selected_items]
-
-        if spectra_selected:  # Ensure there are spectra to treat
-            # Open the treatment window and pass the spectra to it
-            self.treat_spectra_window = TreatSpectra(self, spectra_selected)
-            self.treat_spectra_window.show()
-    
-    def update_properties(self, file_path):
-        # Open the FileProperties window
-        self.filepath_item = file_path
-        self.File_Properties_window = FileProperties(self)
-        self.File_Properties_window.exec_()
-
     def file_properties(self, pos):
         # Get the item at the clicked position
         item = self.table_widget.itemAt(pos)
@@ -1206,6 +1116,130 @@ class MainWindow(QMainWindow):
                 
                 elif action == treat_action:
                     self.treat_spectrum()
+
+    def new_db(self):
+        # Open a file dialog to select the location and name for the new database
+        db_path, _ = QFileDialog.getSaveFileName(self, "Save New Database", "", "SQLite Database (*.db);;All Files (*)")
+
+        if db_path:  # Check if a path was selected
+            try:
+                # Create a new DatabaseManager instance
+                self.db_manager = DatabaseManager(db_path, self.config)
+                self.db_manager.create_table()
+                self.add_db_tools()  # Call to add database tools
+
+            except sqlite3.Error as e:
+                QMessageBox.critical(self, "Error", f"Failed to create database: {e}")
+
+    def open_db(self):
+        # Open a file dialog to select an existing database
+        db_path, _ = QFileDialog.getOpenFileName(self, "Open Database", "", "SQLite Database (*.db);;All Files (*)")
+
+        if db_path:  # Check if a path was selected
+            try:
+                # Create a new DatabaseManager instance
+                self.db_manager = DatabaseManager(db_path, self.config)
+                self.db_manager.connect(compatibility=True)
+                if not self.db_tools: self.add_db_tools()  # Call to add database tools
+                self.update_table(init = True)
+
+            except sqlite3.Error as e:
+                QMessageBox.critical(self, "Error", f"Failed to open database: {e}")
+
+    def remove_spectrum(self):
+        # Get the selected rows from the table
+        selected_items = self.table_widget.selectedItems()
+        spectra = self.db_manager.fetch_spectra()
+        
+        if selected_items:
+            spectra_to_remove = []
+            for item in selected_items:
+                row = item.row()
+                spectra_to_remove.append(spectra[row])
+            
+            # Confirm deletion from the database
+            reply = QMessageBox.question(
+                self, 'Remove Spectrum',
+                f"Are you sure you want to remove the selected spectra from the database?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                for spectrum_id in spectra_to_remove:
+                    try:
+                        print(spectrum_id[2])
+                        # Call DatabaseManager to remove the spectrum
+                        self.db_manager.remove_spectrum(spectrum_id[2])
+                        
+                        # Ask if BH5 file should also be deleted
+                        bh5_file_path = spectrum_id[2]
+                        if os.path.isfile(bh5_file_path):
+                            delete_bh5 = QMessageBox.question(
+                                self, 'Delete BH5 File',
+                                f"Do you also want to delete the BH5 file for spectrum ID {spectrum_id[1]}?",
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                            )
+                            if delete_bh5 == QMessageBox.Yes:
+                                os.remove(bh5_file_path)
+                        
+                        # Update the table after removal
+                        self.update_table()
+
+                    except sqlite3.Error as e:
+                        QMessageBox.critical(self, "Error", f"Failed to remove spectrum: {e}")
+
+    def show_column_selector(self, pos):
+        context_menu = QMenu(self)
+        column_names = [e for e in self.config['Database Columns']]  # Fetch column names from config
+
+        for i, name in enumerate(column_names):
+            action = context_menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(not self.table_widget.isColumnHidden(i))  # Check if column is visible
+
+            # Use functools.partial to capture the index correctly
+            action.triggered.connect(partial(self.toggle_column_visibility, i))
+
+        context_menu.exec_(self.table_widget.viewport().mapToGlobal(pos))  # Use the click position
+
+    def toggle_column_visibility(self, index, checked):
+        self.table_widget.setColumnHidden(index, not checked)  # Show the column if checked
+
+    def treat_spectrum(self):
+        # Get the item at the clicked position
+        selected_items = self.table_widget.selectedItems()
+        spectra = self.db_manager.fetch_spectra()  # Fetch spectra from the database
+
+        spectra_selected = [spectra[item.row()] for item in selected_items]
+
+        if spectra_selected:  # Ensure there are spectra to treat
+            # Open the treatment window and pass the spectra to it
+            self.treat_spectra_window = TreatSpectra(self, spectra_selected)
+            self.treat_spectra_window.show()
+    
+    def update_database_from_bh5(self, file_path):
+        with h5py.File(file_path, 'r') as f:
+            updates = {"sample": f.attrs["MEASURE.Sample"], 
+                       "date": f.attrs["MEASURE.Date_of_measure"],
+                       "acquisition_time": f.attrs["MEASURE.Exposure"],
+                       "scanning_strategy": f.attrs["SPECTROMETER.Scanning_Strategy"],
+                       "spectrometer_type": f.attrs["SPECTROMETER.Type"],
+                       "laser_wavelength": f.attrs["SPECTROMETER.Wavelength_nm"],
+                       "laser_model": f.attrs["SPECTROMETER.Laser_Model"],
+                       "laser_power": f.attrs["SPECTROMETER.Illumination_Power"],
+                       "lens_na": f.attrs["SPECTROMETER.Detection_Lens_NA"],
+                       "scattering_angle": f.attrs["SPECTROMETER.Scattering_Angle"],
+                       "data_shape": f.attrs["MEASURE.Sampling_Matrix_Size_(Nx,Ny,Nz)"]}
+            
+        self.db_manager.update_database_by_filepath(file_path, updates)
+
+    def update_properties(self, file_path):
+        # Open the FileProperties window
+        self.filepath_item = file_path
+        self.File_Properties_window = FileProperties(self)
+        self.File_Properties_window.exec_()
+        self.update_database_from_bh5(file_path)
+        self.update_table()
 
     def update_table(self, init = False):
         # Clear the table before updating
