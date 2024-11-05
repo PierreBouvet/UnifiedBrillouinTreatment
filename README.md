@@ -26,6 +26,7 @@ The treatment process can be modified or adjusted inside the software and is dis
 
 The User Interface currently only supports the following files
 - 0D (point measure) spectra obtained with the GHOST software
+- 2D tif files
 
 ## Future developments
 
