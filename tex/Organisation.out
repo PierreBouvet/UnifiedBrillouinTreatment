@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Raw\040data}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Concept}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{File\040structure}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{List\040of\040attributes}{}% 5
+\BOOKMARK [1][-]{section.4}{Organization\040of\040the\040dimensions\040of\040the\040raw\040data}{}% 6
+\BOOKMARK [1][-]{section.5}{HDF5_Brillouin_creator\040class\040structure}{}% 7
+\BOOKMARK [2][-]{subsection.5.1}{Schematical\040idea}{section.5}% 8
+\BOOKMARK [2][-]{subsection.5.2}{Function\040definitions}{section.5}% 9
